@@ -43,3 +43,53 @@
                                              ▼
                                  [ Rocky Linux 렉 서버 ]
                                (218.154.110.155:10220/status)
+```
+
+---
+
+## 🛠️ 3. API 엔드포인트 명세 (API Endpoints)
+
+| Method | Endpoint | Description | Response Example |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/health` | Health Probe 및 인프라 상태 점검용 | `{"status": "healthy", "served_by": "alert-server-a"}` |
+| `GET` | `/alerts` | 부산 재난 경보 실시간 알림 API | *(아래 예시 참고)* |
+
+### 📄 `/alerts` 응답 예시
+```json
+{
+  "region": "부산광역시",
+  "alert_level": "태풍 경보",
+  "message": "해안가와 하천 주변 접근을 피하십시오.",
+  "rocky_api_status": "running",
+  "served_by": "alert-server-a",
+  "timestamp": "2026-07-23T13:57:46.348242"
+}
+```
+
+---
+
+## 🧪 4. 장애 실험 시나리오 및 측정 지표 (HA Experiments)
+
+부하 테스트 도구인 **k6**를 활용해 지속적인 트래픽을 주입하면서 3가지 장애 시나리오를 연출하고 지표를 정량 측정합니다.
+
+### 🌪️ 트래픽 및 장애 시나리오
+1. **평상시**: 10 VU (Virtual Users)
+2. **주의보**: 50 VU
+3. **재난 경보**: 100 VU
+4. **장애 발생**: 100 VU 상태에서 인위적 장애 유발
+   * **실험 A**: FastAPI 프로세스 강제 종료 (`kill -9`) ➔ systemd 자동 복구
+   * **실험 B**: VM-A 전체 중단 ➔ Load Balancer의 VM-B로의 Failover
+   * **실험 C**: `stress-ng`를 이용한 CPU 과부하 연출 ➔ 지연 시간 변화 측정
+
+### 📊 정량적 검증 지표 표 (Results)
+
+| 측정 지표 | 목표 기준 | 실험 결과 | 비고 |
+| :--- | :--- | :--- | :--- |
+| **정상 요청 성공률** | 100% | `__ %` | 정상 트래픽 구간 |
+| **장애 구간 성공률** | 99% 이상 | `__ %` | 장애 발생 시 트래픽 유실률 |
+| **평균 / P95 응답 속도** | - | `__ / __ ms` | Latency 분석 |
+| **systemd 복구 시간** | 3초 이내 | `__ 초` | 프로세스 자동 재시작 |
+| **VM 전환 (Failover) 시간** | - | `__ 초` | LB Health Probe 감지 |
+| **VM 재합류 (Failback) 시간** | - | `__ 초` | VM 복구 후 트래픽 재합류 |
+
+---
