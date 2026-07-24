@@ -87,8 +87,8 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "app:app",
-        host="127.0.0.1",
-        port=8080,
+        host="127.0.0.1",   # 외부 직접 접근 차단, 내부 루프백
+        port=8080,          # Nginx와 통신할 내부 포트
         reload=True
     )
 
