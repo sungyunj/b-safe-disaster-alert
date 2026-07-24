@@ -46,8 +46,63 @@
 ```
 
 ---
+## ⚙️ 3. 인프라 보안 및 서비스 자동화 설정 (Configuration)
 
-## 🛠️ 3. API 엔드포인트 명세 (API Endpoints)
+FastAPI 애플리케이션의 외부 직접 접근을 차단하고, 백그라운드 상시 실행 및 장애 발생 시 자동 복구(Auto-Recovery) 체계를 구축했습니다.
+
+### 🔒 1) FastAPI 내부 바인딩 및 포트 차단 (`app.py`)
+외부 인터넷에서 8080 포트로 직접 접근하는 것을 차단하고, Nginx를 통해서만 통신하도록 루프백(`127.0.0.1`) 바인딩을 적용했습니다.
+
+```python
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app:app",
+        host="127.0.0.1",  # 외부 직접 접근 차단 (내부 루프백 전용)
+        port=8080,        # Nginx Reverse Proxy 연동 포트
+        reload=False
+    )
+```
+### 🔄 2) Nginx Reverse Proxy 설정 (`/etc/nginx/sites-available/bsafe`)
+외부에서 **80번 포트(HTTP)** 로 들어오는 요청을 내부에서 실행 중인 **FastAPI(127.0.0.1:8080)** 로 전달하도록 Nginx Reverse Proxy를 구성했습니다. 이를 통해 사용자는 80번 포트만 사용하고, FastAPI는 외부에 직접 노출되지 않도록 설정했습니다.
+
+```nginx
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass [http://127.0.0.1:8080](http://127.0.0.1:8080);
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+### 🤖 3) systemd 자동 실행 및 복구 데몬 등록 (`/etc/systemd/system/bsafe.service`)
+FastAPI 서비스를 **systemd**에 등록하여 VM 서버가 부팅될 때 자동으로 실행되도록 설정했습니다. 또한 프로세스가 예기치 않게 종료될 경우 **3초 후 자동으로 재시작(`Restart=always`)** 하여 서비스의 가용성을 유지하도록 구성했습니다.
+
+```ini
+[Unit]
+Description=BSAFE FastAPI Service
+After=network.target
+
+[Service]
+User=azureuser
+WorkingDirectory=/home/azureuser/project
+Environment="SERVER_NAME=alert-server-a"  # VM-B는 alert-server-b로 설정
+ExecStart=/usr/bin/python3 /home/azureuser/project/app.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+---
+
+## 🛠️ 4. API 엔드포인트 명세 (API Endpoints)
 
 | Method | Endpoint | Description | Response Example |
 | :--- | :--- | :--- | :--- |
@@ -68,7 +123,7 @@
 
 ---
 
-## 🧪 4. 장애 실험 시나리오 및 측정 지표 (HA Experiments)
+## 🧪 5. 장애 실험 시나리오 및 측정 지표 (HA Experiments)
 
 부하 테스트 도구인 **k6**를 활용해 지속적인 트래픽을 주입하면서 3가지 장애 시나리오를 연출하고 지표를 정량 측정합니다.
 
