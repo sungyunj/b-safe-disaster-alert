@@ -1,0 +1,19 @@
+# systemd 자동 실행 및 장애 복구 서비스 설정 파일
+# 백그라운드 상시 실행, 부팅 시 자동 시작, 프로세스 다운 시 자동 재시작을 담당.
+
+[Unit]
+Description=BSAFE FastAPI Service  # 서비스 설명
+After=network.target               # 네트워크 데몬이 정상 작동된 후 서비스 시작
+
+[Service]
+User=azureuser                     # 실행 사용자 계정
+WorkingDirectory=/home/azureuser/project  # 작업 디렉토리 경로
+Environment="SERVER_NAME=alert-server-a"  # VM 식별용 환경변수 (VM-B는 alert-server-b)
+ExecStart=/usr/bin/python3 /home/azureuser/project/app.py  # 실행 명령
+
+# 장애 자동 복구 설정 (Auto-Recovery)
+Restart=always                     # 비정상 종료, kill 신호 수신 등 어떤 이유로 죽어도 자동 재시작
+RestartSec=3                       # 다운 감지 후 3초 뒤 자동 재실행
+
+[Install]
+WantedBy=multi-user.target         # 다중 사용자 환경(부팅 시) 자동 실행 가능하도록 등록
