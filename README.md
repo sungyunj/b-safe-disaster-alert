@@ -50,7 +50,25 @@
 
 FastAPI 애플리케이션의 외부 직접 접근을 차단하고, 백그라운드 상시 실행 및 장애 발생 시 자동 복구(Auto-Recovery) 체계를 구축했습니다.
 
-### 🔒 1) FastAPI 내부 바인딩 및 포트 차단 (`app.py`)
+### 🏗️ Azure 인프라 및 네트워크 보안 구성 (Infrastructure & NSG)
+
+시스템의 고가용성(HA)과 보안을 위해 Azure Standard Load Balancer와 NSG 포트 제어를 적용했습니다.
+
+### 🔒 1) Network Security Group (NSG) 포트 정책
+* **HTTP (80)**: Load Balancer 및 Nginx 외부 트래픽 허용
+* **SSH (22)**: 서버 관리용 접속 허용
+* **FastAPI (8080)**: 외부 직접 접근 전면 차단 (Nginx 역프록시를 통해서만 진입 가능)
+
+### ⚖️ 2) Azure Standard Load Balancer & Health Probe
+* **Backend Pool**: `vm-web-01` (`alert-server-a`), `vm-web-02` (`alert-server-b`) 등록
+* **Health Probe**:
+  * Protocol: `HTTP`
+  * Port: `80`
+  * Request Path: `/health` (FastAPI 헬스체크 API)
+  * Interval: `5s` (5초마다 VM 상태 점검)
+* **Load Balancing Rule**: 외부 Port 80 요청을 백엔드 VM 80번 포트로 균등 분산 (Session Persistence: None)
+
+### 🔒 3) FastAPI 내부 바인딩 및 포트 차단 (`app.py`)
 외부 인터넷에서 8080 포트로 직접 접근하는 것을 차단하고, Nginx를 통해서만 통신하도록 루프백(`127.0.0.1`) 바인딩을 적용했습니다.
 
 ```python
@@ -63,7 +81,7 @@ if __name__ == "__main__":
         reload=False
     )
 ```
-### 🔄 2) Nginx Reverse Proxy 설정 (`/etc/nginx/sites-available/bsafe`)
+### 🔄 4) Nginx Reverse Proxy 설정 (`/etc/nginx/sites-available/bsafe`)
 외부에서 **80번 포트(HTTP)** 로 들어오는 요청을 내부에서 실행 중인 **FastAPI(127.0.0.1:8080)** 로 전달하도록 Nginx Reverse Proxy를 구성했습니다. 이를 통해 사용자는 80번 포트만 사용하고, FastAPI는 외부에 직접 노출되지 않도록 설정했습니다.
 
 ```nginx
@@ -80,7 +98,7 @@ server {
     }
 }
 ```
-### 🤖 3) systemd 자동 실행 및 복구 데몬 등록 (`/etc/systemd/system/bsafe.service`)
+### 🤖 5) systemd 자동 실행 및 복구 데몬 등록 (`/etc/systemd/system/bsafe.service`)
 FastAPI 서비스를 **systemd**에 등록하여 VM 서버가 부팅될 때 자동으로 실행되도록 설정했습니다. 또한 프로세스가 예기치 않게 종료될 경우 **3초 후 자동으로 재시작(`Restart=always`)** 하여 서비스의 가용성을 유지하도록 구성했습니다.
 
 ```ini
