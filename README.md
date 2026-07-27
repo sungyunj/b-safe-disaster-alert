@@ -58,11 +58,12 @@
 ├── config/                     # [설정] 서버 및 인프라 자동화 설정 파일 모음
 │   ├── bsafe.nginx             # ➔ [Nginx] 80번 포트 Reverse Proxy 설정 파일
 │   └── bsafe.service           # ➔ [systemd] FastAPI 자동 실행 및 장애 자동 복구 설정 파일
-├── tests/                      # [k6] 부하 및 장애 테스트 스크립트 모음
+├── tests/                      # [k6] 부하 및 장애 테스트 스크립트 및 결과 모음
 │   ├── disaster-scenario.js    # ➔ [메인] 재난 단계별(10->50->100 VU) 종합 장애 실험 스크립트
 │   ├── load-test.js            # ➔ 표준 단계별 부하 테스트 및 정확한 서버 카운팅 스크립트
 │   ├── level-test.js           # ➔ 특정 VU 수치 동적 지정 단독 테스트 스크립트
-│   └── test.js                 # ➔ k6 환경 및 네트워크 기본 통신 점검용 스크립트
+│   ├── test.js                 # ➔ k6 환경 및 네트워크 기본 통신 점검용 스크립트
+│   └── results/                # ➔ [결과] k6 부하/장애 테스트 및 CPU 과부하 실험 결과 파일 모음 (txt 등)
 ├── docs/                       # [문서] 프로젝트 아키텍처 및 화면 증빙 자료
 │   └── images/                 # ➔ Azure NSG, Health Probe, Azure Monitor 지표 등 캡처본 저장
 └── README.md                   # [문서] 프로젝트 개요, 아키텍처 및 HA 장애 실험 결과 문서
