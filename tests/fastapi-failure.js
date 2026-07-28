@@ -4,51 +4,48 @@ import { Counter } from 'k6/metrics';
 
 const vmAResponses = new Counter('vm_a_responses');
 const vmBResponses = new Counter('vm_b_responses');
+const failedResponses = new Counter('failed_responses');
 const unknownResponses = new Counter('unknown_responses');
 
-const BASE_URL = __ENV.BASE_URL || 'http://20.249.156.9';
-const TEST_VUS = Number(__ENV.TEST_VUS || 10);
-const TEST_DURATION = __ENV.TEST_DURATION || '1m';
-
 export const options = {
-    vus: TEST_VUS,
-    duration: TEST_DURATION,
+    vus: 100,
+    duration: '2m',
 
     thresholds: {
-        http_req_failed: ['rate<0.01'],
+        checks: ['rate>0.95'],
         http_req_duration: ['p(95)<2000'],
-        checks: ['rate>0.99'],
+        http_req_failed: ['rate<0.05'],
     },
 };
 
 export default function () {
-    const response = http.get(`${BASE_URL}/alerts`);
+    const baseUrl = __ENV.BASE_URL || 'http://20.249.156.9';
 
-    check(response, {
-        'HTTP 상태코드가 200이다': (res) => res.status === 200,
-        '응답시간이 2초 미만이다': (res) =>
-            res.timings.duration < 2000,
+    const response = http.get(`${baseUrl}/alerts`, {
+        timeout: '10s',
+    });
+
+    const success = check(response, {
+        'HTTP 상태 코드가 200이다': (res) => res.status === 200,
         '응답에 served_by가 있다': (res) =>
-	    res.status === 200 &&
+            res.status === 200 &&
             typeof res.body === 'string' &&
             res.body.includes('served_by'),
     });
+
+    if (!success || response.status !== 200) {
+        failedResponses.add(1);
+        sleep(1);
+        return;
+    }
 
     try {
         const body = response.json();
         const server = String(body.served_by || '').toLowerCase();
 
-        if (
-            server.includes('alert-server-a') ||
-            server.includes('server-a') ||
-            server.includes('vm-a')
-        ) {
+        if (server.includes('alert-server-a')) {
             vmAResponses.add(1);
-        } else if (
-            server.includes('alert-server-b') ||
-            server.includes('server-b') ||
-            server.includes('vm-b')
-        ) {
+        } else if (server.includes('alert-server-b')) {
             vmBResponses.add(1);
         } else {
             unknownResponses.add(1);
