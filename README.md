@@ -81,6 +81,8 @@ k6 부하 테스트 도구가 설치되어 Azure Load Balancer로 부하를 주�
 │   ├── test.js                 # ➔ k6 설치 및 네트워크 기본 통신 점검용 스크립트
 │   └── results/                # ➔ k6 실행 결과 요약(summary.json) 및 로그 자동 저장 폴더
 ├── app.py                      # [백엔드] 실행 테스트용 FastAPI 코드
+├── /etc/systemd/system/
+│   └── bsafe.service           # ➔ [systemd] FastAPI 프로세스 상시 가동 및 장애 자동 복구 서비스
 ├── anaconda-ks.cfg             # [시스템] Linux OS 설치 자동 설정 파일 (무시)
 └── initial-setup-ks.cfg        # [시스템] Linux OS 초기 설정 기록 파일 (무시)
 ```
