@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 B-SAFE 부산 재난 알림 서비스</title>
+    <!-- Tailwind CSS (CDN으로 빠른 스타일링) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+        
+        <!-- 1. 헤더 (재난 단계별 색상) -->
+        <div id="alert-header" class="bg-red-600 p-6 text-center animate-pulse">
+            <span class="text-xs font-bold tracking-widest uppercase bg-black/30 px-3 py-1 rounded-full" id="region">부산광역시</span>
+            <h1 class="text-3xl font-black mt-2" id="alert-level">태풍 경보</h1>
+        </div>
+
+        <!-- 2. 재난 메시지 본문 -->
+        <div class="p-6 space-y-4">
+            <div class="bg-slate-700/50 p-4 rounded-xl border border-slate-600">
+                <p class="text-sm text-slate-400 mb-1">📢 안내 메시지</p>
+                <p class="text-lg font-medium text-slate-10" id="message">해안가와 하천 주변 접근을 피하십시오.</p>
+            </div>
+
+            <!-- 3. HA 증빙용 서버 분산 정보 (가장 중요!) -->
+            <div class="grid grid-cols-2 gap-3 text-center">
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                    <p class="text-xs text-slate-500">처리 서버 (HA)</p>
+                    <p class="text-sm font-bold text-cyan-400 mt-1" id="served-by">alert-server-a</p>
+                </div>
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                    <p class="text-xs text-slate-500">시스템 상태</p>
+                    <p class="text-sm font-bold text-emerald-400 mt-1" id="health-status">HEALTHY 🟢</p>
+                </div>
+            </div>
+
+            <!-- 4. 타임스탬프 -->
+            <div class="text-center text-xs text-slate-500 pt-2">
+                최신 업데이트: <span id="timestamp">-</span>
+            </div>
+        </div>
+
+        <!-- 5. 새로고침 버튼 -->
+        <div class="p-4 bg-slate-900/50 border-t border-slate-700 text-center">
+            <button onclick="fetchAlerts()" class="w-full bg-slate-700 hover:bg-slate-600 text-sm font-semibold py-2.5 rounded-lg transition">
+                🔄 실시간 상태 새로고침
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // /alerts API를 호출하여 화면을 동적으로 업데이트하는 JS
+        async function fetchAlerts() {
+            try {
+                const res = await fetch('/alerts');
+                const data = await res.json();
+
+                document.getElementById('region').innerText = data.region || '부산광역시';
+                document.getElementById('alert-level').innerText = data.alert_level || '특보 상황';
+                document.getElementById('message').innerText = data.message || '상황을 주시하십시오.';
+                document.getElementById('served-by').innerText = data.served_by || 'Unknown Server';
+                document.getElementById('timestamp').innerText = new Date(data.timestamp).toLocaleString();
+
+                // 경보 단계에 따른 헤더 색상 변경
+                const header = document.getElementById('alert-header');
+                if (data.alert_level.includes('경보')) {
+                    header.className = "bg-red-600 p-6 text-center animate-pulse";
+                } else if (data.alert_level.includes('주의보')) {
+                    header.className = "bg-amber-600 p-6 text-center";
+                } else {
+                    header.className = "bg-emerald-600 p-6 text-center";
+                }
+            } catch (err) {
+                console.error("API Fetch Error:", err);
+                document.getElementById('health-status').innerText = 'ERROR 🔴';
+            }
+        }
+
+        // 페이지 로드 시 즉시 데이터 로딩
+        fetchAlerts();
+    </script>
+</body>
+</html>
