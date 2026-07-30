@@ -2,6 +2,8 @@
 > **Azure Load Balancer 및 Nginx, FastAPI, systemd 기반의 서버 장애 극복 및 고가용성 검증 프로젝트**
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=FastAPI&logoColor=white)](#)
+[![Jinja2](https://img.shields.io/badge/Jinja2-B41717?style=flat-square&logo=jinja&logoColor=white)](#)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](#)
 [![Nginx](https://img.shields.io/badge/Nginx-009639?style=flat-square&logo=NGINX&logoColor=white)](#)
 [![Microsoft Azure](https://img.shields.io/badge/Azure_Load_Balancer-0089D6?style=flat-square&logo=microsoftazure&logoColor=white)](#)
 [![Ubuntu](https://img.shields.io/badge/Ubuntu_22.04_LTS-E95420?style=flat-square&logo=ubuntu&logoColor=white)](#)
@@ -54,19 +56,21 @@
 
 ```text
 .
-├── app.py                      # [FastAPI] 백엔드 재난 알림 API 및 Uvicorn 실행 코드 (127.0.0.1:8080)
-├── config/                     # [설정] 서버 및 인프라 자동화 설정 파일 모음
-│   ├── bsafe.nginx             # ➔ [Nginx] 80번 포트 Reverse Proxy 설정 파일
-│   └── bsafe.service           # ➔ [systemd] FastAPI 자동 실행 및 장애 자동 복구 설정 파일
-├── tests/                      # [k6] 부하 및 장애 테스트 스크립트 및 결과 모음
-│   ├── disaster-scenario.js    # ➔ [메인] 재난 단계별(10->50->100 VU) 종합 장애 실험 스크립트
-│   ├── load-test.js            # ➔ 표준 단계별 부하 테스트 및 정확한 서버 카운팅 스크립트
-│   ├── level-test.js           # ➔ 특정 VU 수치 동적 지정 단독 테스트 스크립트
-│   ├── test.js                 # ➔ k6 환경 및 네트워크 기본 통신 점검용 스크립트
-│   └── results/                # ➔ [결과] k6 부하/장애 테스트 및 CPU 과부하 실험 결과 파일 모음 (txt 등)
-├── docs/                       # [문서] 프로젝트 아키텍처 및 화면 증빙 자료
-│   └── images/                 # ➔ Azure NSG, Health Probe, Azure Monitor 지표 등 캡처본 저장
-└── README.md                   # [문서] 프로젝트 개요, 아키텍처 및 HA 장애 실험 결과 문서
+├── app.py                  # [FastAPI] 백엔드 재난 알림 API, Jinja2 템플릿 연동 및 Uvicorn 실행 (127.0.0.1:8080)
+├── templates/              # [UI] 프론트엔드 HTML 템플릿 디렉토리 (신규 추가)
+│   └── index.html          # ➔ Jinja2 기반 재난 알림 실시간 웹 DashBoard UI (Tailwind CSS 적용)
+├── config/                 # [설정] 서버 및 인프라 자동화 설정 파일 모음
+│   ├── bsafe.nginx         # ➔ [Nginx] 80번 포트 Reverse Proxy 설정 파일
+│   └── bsafe.service       # ➔ [systemd] FastAPI 자동 실행 및 장애 자동 복구 설정 파일
+├── tests/                  # [k6] 부하 및 장애 테스트 스크립트 및 결과 모음
+│   ├── disaster-scenario.js# ➔ [메인] 재난 단계별(10->50->100 VU) 종합 장애 실험 스크립트
+│   ├── load-test.js        # ➔ 표준 단계별 부하 테스트 및 정확한 서버 카운팅 스크립트
+│   ├── level-test.js       # ➔ 특정 VU 수치 동적 지정 단독 테스트 스크립트
+│   ├── test.js             # ➔ k6 환경 및 네트워크 기본 통신 점검용 스크립트
+│   └── results/            # ➔ [결과] k6 부하/장애 테스트 및 CPU 과부하 실험 결과 파일 모음
+├── docs/                   # [문서] 프로젝트 아키텍처 및 화면 증빙 자료
+│   └── images/             # ➔ Azure NSG, Health Probe, UI 화면 캡처본 저장
+└── README.md               # [문서] 프로젝트 개요, 아키텍처 및 HA 장애 실험 결과 문서
 ```
 
 #### 2) 🖥️ DCA 렉 서버 환경 구조 (Test Execution Node)
@@ -169,33 +173,43 @@ WantedBy=multi-user.target
 
 ## 🛠️ 4. API 엔드포인트 명세 (API Endpoints)
 
-| Method | Endpoint | Description | Response Example |
+| Method | Endpoint | Response Type | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/health` | Health Probe 및 인프라 상태 점검용 | `{"status": "healthy", "served_by": "alert-server-a"}` |
-| `GET` | `/alerts` | 부산 재난 경보 실시간 알림 API | *(아래 예시 참고)* |
+| `GET` | `/` | `text/html` | **[UI]** 사용자용 실시간 재난 알림 웹 대시보드 (`templates/index.html`) |
+| `GET` | `/health` | `application/json` | Health Probe 및 Azure Load Balancer 상태 점검용 |
+| `GET` | `/alerts` | `application/json` | 부산 재난 경보 실시간 동적 상태 데이터 API (새로고침 시 특보 무작위 변경) |
 
-### 📄 `/alerts` 응답 예시
+### 📄 `/alerts` 응답 예시 (동적 변경 반영)
 ```json
 {
   "region": "부산광역시",
-  "alert_level": "태풍 경보",
-  "message": "해안가와 하천 주변 접근을 피하십시오.",
+  "alert_level": "호우 주의보",
+  "message": "산사태 우려 지역 주민은 안전에 유의하십시오.",
   "rocky_api_status": "running",
   "served_by": "alert-server-a",
-  "timestamp": "2026-07-23T13:57:46.348242"
+  "timestamp": "2026-07-30T14:25:00.000000Z"
 }
 ```
+---
+
+## 🎨 5. 웹 프론트엔드 Dashboard UI (Web UI)
+
+사용자가 재난 상황 및 서버 가용성 상태를 한눈에 파악할 수 있도록 Jinja2 템플릿 엔진 및 Tailwind CSS 기반의 반응형 대시보드를 구축했습니다.
+
+* **동적 UI 테마 변경**: `/alerts` API의 `alert_level` 응답값("경보", "주의보", "정상")에 따라 상단 헤더 색상 및 깜빡임 효과(`animate-pulse`)가 자동 전환됩니다.
+* **실시간 비동기 처리**: 브라우저에서 `🔄 실시간 상태 새로고침` 버튼 클릭 시 `fetch()` API를 호출하여 화면 전체 리로드 없이 데이터를 즉시 갱신합니다.
+* **KST 한국 시간 자동 변환**: 백엔드의 UTC 타임스탬프(`Z`)를 자바스크립트 `Intl.DateTimeFormat`을 이용해 사용자 브라우저 기준 한국 표준시(KST)로 자동 교정 및 출력합니다.
 
 ---
 
-## 🧪 5. 장애 실험 시나리오 및 측정 지표 (HA Experiments)
+## 🧪 6. 장애 실험 시나리오 및 측정 지표 (HA Experiments)
 
 부하 테스트 도구인 **k6**를 활용해 재난 단계별 트래픽을 주입하면서 3가지 장애 시나리오를 연출하고 지표를 정량 측정합니다.
 
-### 🌪️ 재난 단계별 트래픽 시나리오
+### 🌪️ 재난 단계별 트래픽 시나리오 (동시 접속자 수, VU)
 1. **평상시**: 10 VU (Virtual Users) (일반 재난 정보 조회)
-2. **주의보**: 50 VU (호우·강풍 예보)
-3. **재난 경보**: 100 VU (태풍 상륙 및 침수 발생)
+2. **주의보**: 50 VU (호우·강풍 예보로 인한 트래픽 증가)
+3. **재난 경보**: 100 VU (태풍 상륙 및 침수 발생 시 접속자 폭증)
 4. **장애 발생**: 100 VU 피크 상태에서 인위적 장애 유발
    * **실험 1 (프로세스 장애)**: FastAPI 프로세스 강제 종료 (`kill -9`) ➔ systemd 자동 복구
    * **실험 2 (CPU 과부하)**: `stress-ng`를 이용한 CPU 100% 연출 ➔ 지연 시간 및 회복 측정
@@ -219,7 +233,7 @@ WantedBy=multi-user.target
 
 ---
 
-## 📊 6. Azure Monitor 관측 지표 (Server Metrics)
+## 📊 7. Azure Monitor 관측 지표 (Server Metrics)
 
 k6 부하 테스트 및 장애 실험 진행 시 Azure Portal 지표(Metrics)를 통해 인프라 관점의 상태 변화를 추적했습니다.
 
