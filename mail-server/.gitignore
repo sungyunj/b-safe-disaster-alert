@@ -1,0 +1,9 @@
+sasl_passwd
+sasl_passwd.db
+*.db
+.env
+*.env
+*.log
+*.backup*
+__pycache__/
+*.pyc
