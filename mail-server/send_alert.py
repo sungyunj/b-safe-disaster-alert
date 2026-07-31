@@ -8,9 +8,7 @@ from email.message import EmailMessage
 import requests
 
 
-# API_URL = "http://20.249.156.9/alerts"
-# ➔ 렉 서버 자기 자신의 Flask API를 바라보도록 수정
-API_URL = "http://127.0.0.1:80/status"
+API_URL = "http://20.249.156.9/alerts"
 MAIL_FROM = "sender@example.com"
 MAIL_TO = ["recipient1@example.com", "recipient2@example.com", "recipient3@example.com"]
 
@@ -25,7 +23,7 @@ def already_sent():
 def is_disaster(data):
     level = str(data.get("alert_level", ""))
 
-    # 현재 랜덤 API에서 사용하는 재난 단계
+    # 렉 서버에서 전달받은 특보 단계 검증 (주의보 또는 경보 포함 여부)
     return "주의보" in level or "경보" in level
 
 
@@ -103,7 +101,7 @@ def save_sent_record(data):
 
 
 def main():
-    print("B-SAFE 랜덤 재난 감시 서비스를 시작합니다.")
+    print("B-SAFE 재난 감시 서비스를 시작합니다.")
     print(f"API 주소: {API_URL}")
     print(f"확인 간격: {CHECK_INTERVAL}초")
 
