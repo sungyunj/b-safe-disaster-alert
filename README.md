@@ -52,43 +52,52 @@
 본 프로젝트는 GitHub 저장소(코드 및 문서 관리)와 DCA 렉 서버(부하 테스트 수행) 환경으로 구분되어 있습니다.
 
 #### 1) 🐙 GitHub 저장소 구조 (Project Repository)
-웹 백엔드 코드, Nginx 및 systemd 설정 파일, k6 부하 테스트 스크립트 및 증빙 자료를 보관합니다.
+웹 백엔드 코드, Nginx/systemd 설정 파일, DCA 렉 서버 구동 컴포넌트(k6 부하 테스트 스크립트, 원천 API, 메일 데몬) 및 증빙 자료를 보관합니다.
 
 ```text
 .
-├── app.py                  # [FastAPI] 백엔드 재난 알림 API, Jinja2 템플릿 연동 및 Uvicorn 실행 (127.0.0.1:8080)
-├── templates/              # [UI] 프론트엔드 HTML 템플릿 디렉토리 (신규 추가)
-│   └── index.html          # ➔ Jinja2 기반 재난 알림 실시간 웹 DashBoard UI (Tailwind CSS 적용)
-├── config/                 # [설정] 서버 및 인프라 자동화 설정 파일 모음
-│   ├── bsafe.nginx         # ➔ [Nginx] 80번 포트 Reverse Proxy 설정 파일
-│   └── bsafe.service       # ➔ [systemd] FastAPI 자동 실행 및 장애 자동 복구 설정 파일
-├── tests/                  # [k6] 부하 및 장애 테스트 스크립트 및 결과 모음
-│   ├── disaster-scenario.js# ➔ [메인] 재난 단계별(10->50->100 VU) 종합 장애 실험 스크립트
-│   ├── load-test.js        # ➔ 표준 단계별 부하 테스트 및 정확한 서버 카운팅 스크립트
-│   ├── level-test.js       # ➔ 특정 VU 수치 동적 지정 단독 테스트 스크립트
-│   ├── test.js             # ➔ k6 환경 및 네트워크 기본 통신 점검용 스크립트
-│   └── results/            # ➔ [결과] k6 부하/장애 테스트 및 CPU 과부하 실험 결과 파일 모음
-├── docs/                   # [문서] 프로젝트 아키텍처 및 화면 증빙 자료
-│   └── images/             # ➔ Azure NSG, Health Probe, UI 화면 캡처본 저장
-└── README.md               # [문서] 프로젝트 개요, 아키텍처 및 HA 장애 실험 결과 문서
+├── app.py                       # [FastAPI] 백엔드 재난 알림 API, Jinja2 템플릿 연동 및 Uvicorn 실행 (127.0.0.1:8080)
+├── templates/                   # [UI] 프론트엔드 HTML 템플릿 디렉토리
+│   └── index.html               # ➔ Jinja2 기반 재난 알림 실시간 웹 DashBoard UI (Tailwind CSS 적용)
+├── rocky-server/                # [렉 서버] DCA 렉 서버(Rocky Linux) 전용 구동 컴포넌트 모음
+│   ├── app.py                   # ➔ [Flask] 실시간 재난 상태 원천 API 서버 (포트 10220)
+│   ├── mail-server/             # ➔ [Mail] 24시간 재난 감시 및 이메일 알림 데몬
+│   │   ├── send_alert.py        #   - 재난 특보 자동 감지 및 메일 발송 스크립트
+│   │   └── bsafe-alert-mail.service # - systemd 메일 데몬 자동 가동 서비스 설정 파일
+│   └── tests/                   # ➔ [k6] 부하 및 장애 테스트 스크립트/결과 모음
+│       ├── disaster-scenario.js #   - [메인] 재난 단계별(10->50->100 VU) 종합 장애 실험 스크립트
+│       ├── load-test.js         #   - 표준 단계별 부하 테스트 및 정확한 서버 카운팅 스크립트
+│       ├── level-test.js        #   - 특정 VU 수치 동적 지정 단독 테스트 스크립트
+│       ├── test.js              #   - k6 환경 및 네트워크 기본 통신 점검용 스크립트
+│       └── results/             #   - [결과] k6 부하/장애 테스트 및 CPU 과부하 실험 결과 파일 모음
+├── config/                      # [설정] 서버 및 인프라 자동화 설정 파일 모음
+│   ├── bsafe.nginx              # ➔ [Nginx] 80번 포트 Reverse Proxy 설정 파일
+│   └── bsafe.service            # ➔ [systemd] FastAPI 자동 실행 및 장애 자동 복구 설정 파일
+├── docs/                        # [문서] 프로젝트 아키텍처 및 화면 증빙 자료
+│   └── images/                  # ➔ Azure NSG, Health Probe, UI 화면 캡처본 저장
+└── README.md                    # [문서] 프로젝트 개요, 아키텍처 및 HA 장애 실험 결과 문서
 ```
 
 #### 2) 🖥️ DCA 렉 서버 환경 구조 (Test Execution Node)
-k6 부하 테스트 도구가 설치되어 Azure Load Balancer로 부하를 주입하고 테스트 결과를 수집하는 리눅스 실행 환경입니다.
+k6 부하 테스트 수행, 재난 원천 API 제공 및 24시간 이메일 알림 데몬이 동작하는 Rocky Linux 서버 실행 환경입니다.
 
 ```text
 /root/
-├── bsafe-k6/                   # [k6] 테스트 수행 및 결과 보관 디렉토리
-│   ├── disaster-scenario.js    # ➔ [메인] 재난 단계별(10->50->100 VU) 종합 장애 실험 스크립트
-│   ├── load-test.js            # ➔ 표준 단계별 부하 테스트 및 서버 카운팅 스크립트
-│   ├── level-test.js           # ➔ 특정 VU 수치 동적 지정 단독 테스트 스크립트
-│   ├── test.js                 # ➔ k6 설치 및 네트워크 기본 통신 점검용 스크립트
-│   └── results/                # ➔ k6 실행 결과 요약(summary.json) 및 로그 자동 저장 폴더
-├── app.py                      # [백엔드] 실행 테스트용 FastAPI 코드
+├── app.py                       # [Flask] 실시간 재난 상태 원천 API 서버 코드 (포트 10220)
+├── bsafe-mail/                  # [Mail] 재난 특보 감시 및 이메일 알림 데몬 디렉토리
+│   ├── send_alert.py            # ➔ 재난 특보 자동 감지 및 SMTP 메일 발송 스크립트
+│   └── send_alert.log           # ➔ 메일 발송 및 감시 로그 기록 파일
+├── bsafe-k6/                    # [k6] 부하 테스트 수행 및 결과 보관 디렉토리
+│   ├── disaster-scenario.js     # ➔ [메인] 재난 단계별(10->50->100 VU) 종합 장애 실험 스크립트
+│   ├── load-test.js             # ➔ 표준 단계별 부하 테스트 및 서버 카운팅 스크립트
+│   ├── level-test.js            # ➔ 특정 VU 수치 동적 지정 단독 테스트 스크립트
+│   ├── test.js                  # ➔ k6 설치 및 네트워크 기본 통신 점검용 스크립트
+│   └── results/                 # ➔ k6 실행 결과 요약(summary.json) 및 로그 자동 저장 폴더
 ├── /etc/systemd/system/
-│   └── bsafe.service           # ➔ [systemd] FastAPI 프로세스 상시 가동 및 장애 자동 복구 서비스
-├── anaconda-ks.cfg             # [시스템] Linux OS 설치 자동 설정 파일 (무시)
-└── initial-setup-ks.cfg        # [시스템] Linux OS 초기 설정 기록 파일 (무시)
+│   ├── bsafe-api.service        # ➔ [systemd] Flask 원천 API 상시 가동 서비스
+│   └── bsafe-alert-mail.service # ➔ [systemd] 메일 발송 데몬 상시 가동 서비스
+├── anaconda-ks.cfg              # [시스템] Linux OS 설치 자동 설정 파일 (무시)
+└── initial-setup-ks.cfg         # [시스템] Linux OS 초기 설정 기록 파일 (무시)
 ```
 
 ---
@@ -159,6 +168,27 @@ Environment="SERVER_NAME=alert-server-a"  # VM-B는 alert-server-b로 설정
 ExecStart=/usr/bin/python3 /home/azureuser/project/app.py
 Restart=always
 RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+### ✉️ 6) 렉 서버 메일 자동 발송 데몬 등록 (`/etc/systemd/system/bsafe-alert-mail.service`)
+DCA 렉 서버(Rocky Linux)에서 Postfix 메일 서비스와 연동하여 24시간 재난 특보 감시 및 이메일 자동 발송을 수행하도록 했습니다. 프로세스 실패 시 **10초 후 자동으로 재시작(`Restart=on-failure`)** 되도록 설정하였습니다.
+
+```ini
+[Unit]
+Description=B-SAFE One-Time Disaster Alert Mail
+Wants=network-online.target
+After=network-online.target postfix.service
+Requires=postfix.service
+
+[Service]
+Type=simple
+User=root
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /root/bsafe-mail/send_alert.py
+Restart=on-failure
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
